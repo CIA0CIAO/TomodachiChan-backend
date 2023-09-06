@@ -1,0 +1,65 @@
+spring:
+  profiles:
+    active: dev
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/companion
+    username: root
+    password: wdmm8611
+  mail:
+    host: smtp.163.com
+    username: cia0cia0@163.com
+    password: EIMLEEWCWQEZRJLJ
+    port: 465
+    properties:
+      from: cia0cia0@163.com
+      mail:
+        smtp:
+          socketFactory:
+            class: javax.net.ssl.SSLSocketFactory
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  servlet:
+    multipart:
+      max-file-size: 2MB
+  devtools:
+    restart:
+      enabled: true
+
+server:
+  servlet:
+    context-path: /api
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: ASSIGN_ID
+      logic-delete-field: isDeleted
+      logic-not-delete-value: 0
+      logic-delete-value: 1
+
+knife4j:
+  enable: true
+  setting:
+    swagger-model-name: 实体类信息
+
+momo-companion:
+  md5-salt: ''
+  aliyun:
+    sms:
+      access-key-id: ''
+      access-key-secret: ''
+      sign-name: ''
+      template-code: ''
+      template-param: ''
+    oss:
+      access-key-id: ''
+      access-key-secret: ''
+      endpoint: ''
+      bucket-name: ''
+      url-prefix: ''
