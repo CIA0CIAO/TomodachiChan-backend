@@ -1,6 +1,6 @@
 package com.tomodachi.common.exception;
 
-import com.tomodachi.controller.response.Code;
+import com.tomodachi.controller.response.ErrorCode;
 import lombok.Getter;
 
 /**
@@ -8,14 +8,14 @@ import lombok.Getter;
  */
 @Getter
 public class BusinessException extends RuntimeException {
-    private final Code errorCode;
+    private final ErrorCode errorCode;
     private final String message;
 
-    public BusinessException(Code errorCode) {
+    public BusinessException(ErrorCode errorCode) {
         this(errorCode, errorCode.getDescription());
     }
 
-    public BusinessException(Code errorCode, String message) {
+    public BusinessException(ErrorCode errorCode, String message) {
         super(message);
         this.errorCode = errorCode;
         this.message = message;

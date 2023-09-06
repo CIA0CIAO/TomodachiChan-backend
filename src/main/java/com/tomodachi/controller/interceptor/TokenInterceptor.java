@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tomodachi.common.UserContext;
 import com.tomodachi.common.role.Role;
 import com.tomodachi.common.role.RoleCheck;
-import com.tomodachi.controller.response.Code;
-import com.tomodachi.controller.response.Res;
+import com.tomodachi.controller.response.ErrorCode;
+import com.tomodachi.controller.response.BaseResponse;
 import com.tomodachi.entity.User;
 import com.tomodachi.constant.RedisConstant;
 import com.tomodachi.constant.SystemConstant;
@@ -53,21 +53,21 @@ public class TokenInterceptor implements HandlerInterceptor {
         // 验证 Token
         String token = request.getHeader(SystemConstant.AUTHORIZATION_HEADER);
         if (Strings.isBlank(token)) {
-            Res<Object> res = Res.error(Code.NOT_LOGIN_ERROR, "用户未登录");
-            return setResponse(response, res, HttpServletResponse.SC_UNAUTHORIZED);
+            BaseResponse<Object> baseResponse = BaseResponse.error(ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+            return setResponse(response, baseResponse, HttpServletResponse.SC_UNAUTHORIZED);
         }
         // 验证登录状态
         RBucket<User> userBucket = redissonClient.getBucket(RedisConstant.USER_TOKEN_KEY + token);
         User user = userBucket.get();
         if (user == null) {
-            Res<Object> res = Res.error(Code.NOT_LOGIN_ERROR, "登录已过期");
-            return setResponse(response, res, HttpServletResponse.SC_UNAUTHORIZED);
+            BaseResponse<Object> baseResponse = BaseResponse.error(ErrorCode.NOT_LOGIN_ERROR, "登录已过期");
+            return setResponse(response, baseResponse, HttpServletResponse.SC_UNAUTHORIZED);
         }
         // 验证用户权限
         Role userRole = Role.getRole(user.getStatus());
         if (!userRole.hasPermission(requiredRole)) {
-            Res<Object> res = Res.error(Code.AUTH_ERROR, "用户权限不足");
-            return setResponse(response, res, HttpServletResponse.SC_FORBIDDEN);
+            BaseResponse<Object> baseResponse = BaseResponse.error(ErrorCode.AUTH_ERROR, "用户权限不足");
+            return setResponse(response, baseResponse, HttpServletResponse.SC_FORBIDDEN);
         }
         // 刷新 Token 有效期
         userBucket.expire(RedisConstant.USER_TOKEN_TTL);
@@ -88,9 +88,9 @@ public class TokenInterceptor implements HandlerInterceptor {
     /**
      * 为响应设置响应体和状态码
      */
-    private boolean setResponse(HttpServletResponse response, Res<Object> res, int status) throws IOException {
+    private boolean setResponse(HttpServletResponse response, BaseResponse<Object> baseResponse, int status) throws IOException {
         response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(new ObjectMapper().writeValueAsString(res));
+        response.getWriter().write(new ObjectMapper().writeValueAsString(baseResponse));
         response.setStatus(status);
         return false;
     }

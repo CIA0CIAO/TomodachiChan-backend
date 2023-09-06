@@ -8,7 +8,7 @@ import lombok.Getter;
  */
 @Getter
 @AllArgsConstructor
-public enum Code {
+public enum ErrorCode {
     SUCCESS(0, "请求成功"),
     PARAMS_ERROR(40000, "请求参数错误"),
     NULL_ERROR(40001, "查询数据为空"),

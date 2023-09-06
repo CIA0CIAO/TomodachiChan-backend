@@ -1,15 +1,20 @@
 package com.tomodachi.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户表
  */
 @Data
 @Accessors(chain = true)
+@TableName(autoResultMap = true)
 public class User {
     /**
      * 主键
@@ -31,6 +36,15 @@ public class User {
      * 性别 (0 - 未知, 1 - 男, 2 - 女)
      */
     private Integer gender;
+    /**
+     * 标签列表 (JSON 格式)
+     */
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<String> tags;
+    /**
+     * 个人简介
+     */
+    private String profile;
     /**
      * 手机
      */
@@ -55,4 +69,8 @@ public class User {
      * 逻辑删除
      */
     private Integer isDeleted;
+    /**
+     * 邮箱
+     */
+    private String email;
 }

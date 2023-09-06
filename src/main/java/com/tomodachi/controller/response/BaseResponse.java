@@ -10,7 +10,7 @@ import java.io.Serializable;
  */
 @Data
 @AllArgsConstructor
-public class Res<T> implements Serializable {
+public class BaseResponse<T> implements Serializable {
     private Integer code;
     private T data;
     private String message;
@@ -21,10 +21,10 @@ public class Res<T> implements Serializable {
      * @param data 返回数据
      * @param <T>  返回数据类型
      */
-    public static <T> Res<T> success(T data) {
-        Integer code = Code.SUCCESS.getCode();
-        String message = Code.SUCCESS.getDescription();
-        return new Res<>(code, data, message);
+    public static <T> BaseResponse<T> success(T data) {
+        Integer code = ErrorCode.SUCCESS.getCode();
+        String message = ErrorCode.SUCCESS.getDescription();
+        return new BaseResponse<>(code, data, message);
     }
 
     /**
@@ -33,8 +33,8 @@ public class Res<T> implements Serializable {
      * @param errorCode 错误码枚举
      * @param message   错误信息
      */
-    public static <T> Res<T> error(Code errorCode, String message) {
+    public static <T> BaseResponse<T> error(ErrorCode errorCode, String message) {
         Integer code = errorCode.getCode();
-        return new Res<>(code, null, message);
+        return new BaseResponse<>(code, null, message);
     }
 }
