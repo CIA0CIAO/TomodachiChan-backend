@@ -1,16 +1,20 @@
 package com.tomodachi.service.impl;
 
 import cn.hutool.core.lang.UUID;
+import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tomodachi.common.UserContext;
 import com.tomodachi.common.exception.BusinessException;
 import com.tomodachi.common.role.Role;
+import com.tomodachi.controller.UserController;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.entity.User;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.mapper.UserMapper;
 import com.tomodachi.service.UserService;
+import com.tomodachi.util.MD5Util;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +27,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 
 import static com.tomodachi.constant.RedisConstant.*;
-import static com.tomodachi.constant.SystemConstant.EMAIL_REGEX;
-import static com.tomodachi.constant.SystemConstant.USER_ACCOUNT_PREFIX;
+import static com.tomodachi.constant.SystemConstant.*;
 
 /**
  * @author CIA0CIA0
@@ -39,6 +42,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     String provider;
     @Resource
     MailSender mailSender;
+    @Resource
+    MD5Util md5Util;
     @Resource
     RedissonClient redissonClient;
 
@@ -66,9 +71,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .set(code, USER_CODE_TTL);
     }
 
+    /**
+     * 通过验证码登录
+     */
     @Override
     public UserLogin loginByVerificationCode(String email, String verificationCode) {
-        // 校验手机号和验证码
+        // 校验邮箱和验证码
         if (!email.matches(EMAIL_REGEX)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
         }
@@ -81,6 +89,120 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orElseGet(() -> registerByEmail(email));
         log.info("邮箱为 {} 的用户使用验证码登录成功", email);
         return new UserLogin(getMaskedUser(user), getUserToken(user));
+    }
+
+    /**
+     * 通过密码登录
+     */
+    @Override
+    public UserLogin loginByPassword(String email, String password) {
+        // 校验邮箱
+        if (!email.matches(EMAIL_REGEX)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+        }
+        // 校验密码长度
+        if (password.length() < 6) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱或密码错误");
+        }
+        //加密密码
+        String encryptedPassword = md5Util.encrypt(password);
+        // 获取已注册用户信息或创建新用户
+        User user = this.lambdaQuery()
+                .eq(User::getEmail, email)
+                .eq(User::getPassword, encryptedPassword)
+                .oneOpt()
+                .orElseThrow(() -> new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱或密码错误"));
+        log.info("邮箱为 {} 的用户使用密码登录成功", email);
+        return new UserLogin(getMaskedUser(user), getUserToken(user));
+    }
+
+    /**
+     * 获取账号信息
+     */
+    @Override
+    public User getAccountInfo() {
+        String email = UserContext.getEmail();
+        User user = this.lambdaQuery()
+                .eq(User::getEmail, email)
+                .one();
+        return getMaskedUser(user)
+                //DesensitizedUtil.email邮箱脱敏
+                .setEmail(DesensitizedUtil.email(email));
+    }
+
+    /**
+     * 更换邮箱
+     */
+    @Override
+    public void updateEmail(String email, String verificationCode) {
+        // 校验邮箱和验证码
+        if (!email.matches(EMAIL_REGEX)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+        }
+        verifyAndDeleteCode(email, verificationCode);
+        // 校验邮箱是否能换绑
+        User user = this.lambdaQuery()
+                .eq(User::getEmail, email)
+                .one();
+        if (user != null) {
+            if (user.getId().equals(UserContext.getId())) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "该邮箱已在使用");
+            } else {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱已被绑定,请更换邮箱");
+            }
+        }
+        // 更换邮箱
+        this.lambdaUpdate()
+                .eq(User::getId, UserContext.getId())
+                .set(User::getEmail, email)
+                .update();
+    }
+
+    /**
+     * 设置密码
+     */
+    @Override
+    public void updatePassword(String password, String verificationCode) {
+        // 校验密码长度
+        if (password.length() < 6) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于6位");
+        }
+        // 加密密码
+        String encryptedPassword = md5Util.encrypt(password);
+        // 校验验证码
+        verifyAndDeleteCode(UserContext.getEmail(), verificationCode);
+        // 更换密码
+        this.lambdaUpdate()
+                .eq(User::getId, UserContext.getId())
+                .set(User::getPassword, encryptedPassword)
+                .update();
+    }
+
+    /**
+     * 更新基本信息
+     */
+    @Override
+    public void updateBasicInfo(User user) {
+        // 提取基本信息
+        String username = user.getUsername();
+        Integer gender = user.getGender();
+        String profile = user.getProfile();
+        if (username == null && gender == null && profile == null)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户信息为空");
+        // 校验基本信息
+        if (username != null && !username.matches(USERNAME_REGEX))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "昵称必须由 2~10 位的中英文或数字组成");
+        if (gender != null && (gender < 0 || gender > 2))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "性别参数错误");
+        if (profile != null && profile.length() > 50)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "个人简介最长为 50 个字符");
+        // 更新基本信息
+        this.lambdaUpdate()
+                .eq(User::getId, UserContext.getId())
+                .set(username != null, User::getUsername, username)
+                .set(gender != null, User::getGender, gender)
+                .set(profile != null, User::getProfile, profile)
+                .update();
     }
 
     /**
@@ -102,12 +224,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private User registerByEmail(String email) {
         User user = new User();
         user.setAccount(USER_ACCOUNT_PREFIX + RandomUtil.randomString(10))
-                .setPhone(email)
+                .setEmail(email)
                 .setStatus(Role.USER.getLevel());
         this.save(user);
         log.info("邮箱为 {} 的用户注册成功: {}", email, user.getAccount());
         return user;
     }
+
     /**
      * 获得脱敏后的用户信息
      */
@@ -121,6 +244,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .setProfile(user.getProfile())
                 .setCreateTime(user.getCreateTime());
     }
+
     /**
      * 用户登录后生成 Token
      */
@@ -129,7 +253,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String token = UUID.randomUUID().toString(true);
         // 保存登录状态
         User tokenUser = new User().setId(user.getId())
-                .setPhone(user.getPhone())
+                .setEmail(user.getEmail())
                 .setStatus(user.getStatus());
         RBucket<User> userBucket = redissonClient.getBucket(USER_TOKEN_KEY + token);
         userBucket.set(tokenUser, USER_TOKEN_TTL);

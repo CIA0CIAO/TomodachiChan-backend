@@ -14,4 +14,14 @@ public interface UserService extends IService<User> {
     void sendVerificationCode(String email);
 
     UserLogin loginByVerificationCode(String email, String verificationCode);
+
+    UserLogin loginByPassword(String email, String password);
+
+    User getAccountInfo();
+
+    void updateEmail(String email, String verificationCode);
+
+    void updatePassword(String password, String verificationCode);
+
+    void updateBasicInfo(User user);
 }

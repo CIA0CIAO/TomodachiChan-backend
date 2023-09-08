@@ -1,8 +1,11 @@
 package com.tomodachi.controller;
 
+import com.tomodachi.common.UserContext;
 import com.tomodachi.common.exception.BusinessException;
+import com.tomodachi.common.role.RoleCheck;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.controller.response.BaseResponse;
+import com.tomodachi.entity.User;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.entity.dto.UserLoginForm;
 import com.tomodachi.service.UserService;
@@ -11,10 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/user")
@@ -44,4 +44,62 @@ public class UserController {
         return BaseResponse.success(userService.loginByVerificationCode(email, verificationCode));
     }
 
+    @Operation(summary = "用户通过密码登录")
+    @PostMapping("/login/byPassword")
+    public BaseResponse<UserLogin> loginByPassword(@RequestBody UserLoginForm userLoginForm) {
+        String email = userLoginForm.getEmail();
+        String password = userLoginForm.getPassword();
+        if (Strings.isBlank(email)|| Strings.isBlank(password))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和密码");
+        return BaseResponse.success(userService.loginByPassword(email, password));
+    }
+
+    @RoleCheck
+    @Operation(summary = "用户获取账号信息")
+    @GetMapping("/account")
+    public BaseResponse<User> getAccountInfo() {
+        return BaseResponse.success(userService.getAccountInfo());
+    }
+
+    @RoleCheck
+    @Operation(summary = "用户发送验证码 (已登录)")
+    @PostMapping("/account/code")
+    public BaseResponse<String> sendVerificationCode() {
+        userService.sendVerificationCode(UserContext.getEmail());
+        return BaseResponse.success("验证码发送成功");
+    }
+
+    @RoleCheck
+    @Operation(summary = "用户更换邮箱")
+    @PutMapping("/account/email")
+    public BaseResponse<String> updateEmail(@RequestBody UserLoginForm  userLoginForm) {
+        String email = userLoginForm.getEmail();
+        String verificationCode = userLoginForm.getVerificationCode();
+        if (Strings.isBlank(email)|| Strings.isBlank(verificationCode))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和验证码");
+        userService.updateEmail(email, verificationCode);
+        return BaseResponse.success("邮箱更换成功");
+    }
+
+    @RoleCheck
+    @Operation(summary = "用户设置密码")
+    @PutMapping("/account/password")
+    public BaseResponse<String> updatePassword(@RequestBody UserLoginForm userLoginForm) {
+        String password = userLoginForm.getPassword();
+        String verificationCode = userLoginForm.getVerificationCode();
+        if(Strings.isBlank(password)|| Strings.isBlank(verificationCode))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和密码");
+        userService.updatePassword(password, verificationCode);
+        return BaseResponse.success("密码更换成功");
+    }
+
+    @RoleCheck
+    @Operation(summary = "用户更新基本信息")
+    @PutMapping("/account/basic")
+    public BaseResponse<String> updateBasicInfo(@RequestBody User user) {
+        if(user == null)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户信息为空");
+        userService.updateBasicInfo(user);
+        return BaseResponse.success("用户信息更新成功");
+    }
 }

@@ -27,4 +27,7 @@ public class UserContext {
     public static String getPhone() {
         return getUser().getPhone();
     }
+    public static String getEmail() {
+        return getUser().getEmail();
+    }
 }
