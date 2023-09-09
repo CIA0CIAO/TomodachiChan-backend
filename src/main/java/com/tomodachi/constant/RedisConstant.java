@@ -25,6 +25,11 @@ public class RedisConstant {
     public static final Duration USER_INFO_TTL = Duration.ofDays(1);
 
     /**
+     * 缓存使用的分布式锁标识
+     */
+    public static final String LOCK_CACHE_TAGS_KEY = "lock:cache:tags";
+
+    /**
      * 缓存标签关联的用户集合
      */
     public static final String TAGS_KEY = "tags:";
