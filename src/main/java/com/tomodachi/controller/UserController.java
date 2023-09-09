@@ -1,5 +1,6 @@
 package com.tomodachi.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tomodachi.common.UserContext;
 import com.tomodachi.common.exception.BusinessException;
 import com.tomodachi.common.role.RoleCheck;
@@ -15,6 +16,9 @@ import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/user")
@@ -39,7 +43,7 @@ public class UserController {
     public BaseResponse<UserLogin> loginByVerificationCode(@RequestBody UserLoginForm userLoginForm) {
         String email = userLoginForm.getEmail();
         String verificationCode = userLoginForm.getVerificationCode();
-        if (Strings.isBlank(email)|| Strings.isBlank(verificationCode))
+        if (Strings.isBlank(email) || Strings.isBlank(verificationCode))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和验证码");
         return BaseResponse.success(userService.loginByVerificationCode(email, verificationCode));
     }
@@ -49,7 +53,7 @@ public class UserController {
     public BaseResponse<UserLogin> loginByPassword(@RequestBody UserLoginForm userLoginForm) {
         String email = userLoginForm.getEmail();
         String password = userLoginForm.getPassword();
-        if (Strings.isBlank(email)|| Strings.isBlank(password))
+        if (Strings.isBlank(email) || Strings.isBlank(password))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和密码");
         return BaseResponse.success(userService.loginByPassword(email, password));
     }
@@ -72,10 +76,10 @@ public class UserController {
     @RoleCheck
     @Operation(summary = "用户更换邮箱")
     @PutMapping("/account/email")
-    public BaseResponse<String> updateEmail(@RequestBody UserLoginForm  userLoginForm) {
+    public BaseResponse<String> updateEmail(@RequestBody UserLoginForm userLoginForm) {
         String email = userLoginForm.getEmail();
         String verificationCode = userLoginForm.getVerificationCode();
-        if (Strings.isBlank(email)|| Strings.isBlank(verificationCode))
+        if (Strings.isBlank(email) || Strings.isBlank(verificationCode))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和验证码");
         userService.updateEmail(email, verificationCode);
         return BaseResponse.success("邮箱更换成功");
@@ -87,7 +91,7 @@ public class UserController {
     public BaseResponse<String> updatePassword(@RequestBody UserLoginForm userLoginForm) {
         String password = userLoginForm.getPassword();
         String verificationCode = userLoginForm.getVerificationCode();
-        if(Strings.isBlank(password)|| Strings.isBlank(verificationCode))
+        if (Strings.isBlank(password) || Strings.isBlank(verificationCode))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入邮箱和密码");
         userService.updatePassword(password, verificationCode);
         return BaseResponse.success("密码更换成功");
@@ -97,9 +101,27 @@ public class UserController {
     @Operation(summary = "用户更新基本信息")
     @PutMapping("/account/basic")
     public BaseResponse<String> updateBasicInfo(@RequestBody User user) {
-        if(user == null)
+        if (user == null)
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户信息为空");
         userService.updateBasicInfo(user);
         return BaseResponse.success("用户信息更新成功");
+    }
+
+    @Operation(summary = "查询指定用户的信息")
+    @GetMapping("/{userId}")
+    public BaseResponse<User> queryByUserId(@PathVariable Long userId) {
+        if (userId == null)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要查询的用户");
+        return BaseResponse.success(userService.queryByUserId(userId));
+    }
+
+    @Operation(summary = "根据标签分页查询用户")
+    @GetMapping("/tags")
+    public BaseResponse<Page<User>> queryByIdsWithCache(@RequestParam Set<String> tags, Integer currentPage) {
+        if(tags == null || tags.isEmpty())
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要查询的标签");
+        if(currentPage == null || currentPage < 1)
+            currentPage = 1;
+        return BaseResponse.success(userService.queryByTagsWithPagination(tags, currentPage));
     }
 }

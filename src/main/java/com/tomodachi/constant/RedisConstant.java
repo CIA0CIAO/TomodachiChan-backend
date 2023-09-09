@@ -17,4 +17,22 @@ public class RedisConstant {
      */
     public static final String USER_CODE_KEY = "user:code:";
     public static final Duration USER_CODE_TTL = Duration.ofMinutes(5);
+
+    /**
+     * 缓存用户信息
+     */
+    public static final String USER_INFO_KEY = "user:info:";
+    public static final Duration USER_INFO_TTL = Duration.ofDays(1);
+
+    /**
+     * 缓存标签关联的用户集合
+     */
+    public static final String TAGS_KEY = "tags:";
+    public static final Duration TAGS_TTL = Duration.ofDays(3);
+
+    /**
+     * 缓存用户查询的标签结果
+     */
+    public static final String SEARCH_TAGS_KEY = "search:tags:";
+    public static final Duration SEARCH_TAGS_TTL = Duration.ofHours(1);
 }

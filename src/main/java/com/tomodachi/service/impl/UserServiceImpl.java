@@ -4,6 +4,7 @@ import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomodachi.common.UserContext;
 import com.tomodachi.common.exception.BusinessException;
@@ -20,11 +21,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.redisson.api.RBucket;
+import org.redisson.api.RList;
+import org.redisson.api.RSet;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.tomodachi.constant.RedisConstant.*;
 import static com.tomodachi.constant.SystemConstant.*;
@@ -203,6 +211,102 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .set(gender != null, User::getGender, gender)
                 .set(profile != null, User::getProfile, profile)
                 .update();
+    }
+
+    /**
+     * 根据 ID 查询用户信息
+     */
+    @Override
+    public User queryByUserId(Long userId) {
+        User user = this.getById(userId);
+        User maskedUser = getMaskedUser(user);
+        redissonClient.getBucket(USER_INFO_KEY + userId)
+                .set(maskedUser, USER_INFO_TTL);
+        return maskedUser;
+    }
+
+    /**
+     * 根据 ID 批量查询用户信息
+     */
+    @Override
+    public List<User> queryByIdsWithCache(List<Long> userIds) {
+        Map<Long, User> userMap = new HashMap<>();
+        //封装id
+        String[] userIdListWithPrefix = userIds.stream()
+                .map(userId -> USER_INFO_KEY + userId)
+                .toArray(String[]::new);
+        //获取缓存
+        Map<String, User> cachedMap = redissonClient.getBuckets()
+                .get(userIdListWithPrefix);
+        for (Map.Entry<String, User> entry : cachedMap.entrySet()) {
+            String userIdWithPrefix = entry.getKey();
+            User user = entry.getValue();
+            Long userId = Long.valueOf(userIdWithPrefix.substring(USER_INFO_KEY.length()));
+            userMap.put(userId, user);
+        }
+        //查询未缓存的用户并缓存
+        List<Long> uncachedIdsList = userIds.stream()
+                .filter(userId -> !cachedMap.containsKey(USER_INFO_KEY + userId))
+                .toList();
+        if (!uncachedIdsList.isEmpty()) {
+            this.lambdaQuery()
+                    .in(User::getId, uncachedIdsList)
+                    .list()
+                    .forEach(user -> {
+                        Long userId = user.getId();
+                        user = getMaskedUser(user);
+                        redissonClient.getBucket(USER_INFO_KEY + userId)
+                                .set(user, USER_INFO_TTL);
+                        userMap.put(userId, user);
+                    });
+        }
+
+        return userIds.stream().map(userMap::get).toList();
+    }
+
+    /**
+     * 根据标签分页查询用户
+     */
+    @Override
+    public Page<User> queryByTagsWithPagination(Set<String> tags, Integer currentPage) {
+        if (tags.size() > 10) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多只能查询 10 个标签");
+        }
+        // 分页相关参数
+        long total;
+        List<Long> idRecords;
+        int start = (currentPage - 1) * DEFAULT_PAGE_SIZE;
+        int end = currentPage * DEFAULT_PAGE_SIZE - 1;
+
+        // 检查搜索结果是否已缓存
+        String searchTagsKey = SEARCH_TAGS_KEY + String.join(",", tags);
+        RList<Long> searchTagsList = redissonClient.getList(searchTagsKey);
+        int cacheSize = searchTagsList.size();
+        if (cacheSize > 0) {
+            total = cacheSize;
+            idRecords = searchTagsList.range(start, end);
+        } else {
+            // 统计用户的标签匹配次数
+            Map<Long, Integer> matchCount = new HashMap<>();
+            tags.forEach(tag -> {
+                RSet<Long> userIdSet = redissonClient.getSet(TAGS_KEY + tag);
+                userIdSet.forEach(userId -> matchCount.merge(userId, 1, Integer::sum));
+            });
+            // 按标签匹配次数降序排序
+            List<Long> userIds = matchCount.keySet()
+                    .stream()
+                    .sorted((a, b) -> matchCount.get(b) - matchCount.get(a))
+                    .toList();
+            // 缓存搜索结果
+            searchTagsList.addAll(userIds);
+            searchTagsList.expire(SEARCH_TAGS_TTL);
+            // 获得分页数据
+            total = userIds.size();
+            idRecords = userIds.subList(start, Math.min(end + 1, userIds.size()));
+        }
+        // 查询分页后的用户信息
+        List<User> userRecords = queryByIdsWithCache(idRecords);
+        return new Page<User>(currentPage, DEFAULT_PAGE_SIZE, total).setRecords(userRecords);
     }
 
     /**

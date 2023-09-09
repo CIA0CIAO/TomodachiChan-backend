@@ -1,8 +1,12 @@
 package com.tomodachi.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tomodachi.entity.User;
 import com.tomodachi.entity.dto.UserLogin;
+
+import java.util.List;
+import java.util.Set;
 
 /**
 * @author CIA0CIA0
@@ -24,4 +28,10 @@ public interface UserService extends IService<User> {
     void updatePassword(String password, String verificationCode);
 
     void updateBasicInfo(User user);
+
+    User queryByUserId(Long userId);
+
+    List<User> queryByIdsWithCache(List<Long> userIds);
+
+    Page<User> queryByTagsWithPagination(Set<String> tags, Integer currentPage);
 }
