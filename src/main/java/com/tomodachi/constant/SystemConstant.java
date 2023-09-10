@@ -39,5 +39,18 @@ public class SystemConstant {
      * 验证用户昵称正则表达式
      */
     public static final String USERNAME_REGEX = "^[\\u4e00-\\u9fa5_a-zA-Z0-9]{2,10}$";
+    /**
+     * 验证队伍名称正则表达式
+     */
+    public static final String TEAM_NAME_REGEX = "^[\\u4e00-\\u9fa5_a-zA-Z0-9]{2,20}$";
 
+    /**
+     * 用户加入的队伍数量上限
+     */
+    public static final Integer JOINED_TEAM_LIMIT = 10;
+    /**
+     * 用户拥有的队伍数量上限
+     */
+    public static final Integer OWNED_TEAM_LIMIT = 5;
 }
+

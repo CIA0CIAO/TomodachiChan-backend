@@ -40,4 +40,16 @@ public class RedisConstant {
      */
     public static final String SEARCH_TAGS_KEY = "search:tags:";
     public static final Duration SEARCH_TAGS_TTL = Duration.ofHours(1);
+
+
+    /**
+     * 加入队伍使用的分布式锁标识
+     */
+    public static final String LOCK_TEAM_JOIN_KEY = "lock:team:join:";
+
+    /**
+     * 入队邀请信息
+     */
+    public static final String TEAM_INVITATION_KEY = "team:invitation:";
+    public static final Duration TEAM_INVITATION_TTL = Duration.ofDays(7);
 }
