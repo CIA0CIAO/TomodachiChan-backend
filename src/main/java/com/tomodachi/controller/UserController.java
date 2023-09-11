@@ -7,6 +7,7 @@ import com.tomodachi.common.role.RoleCheck;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.controller.response.BaseResponse;
 import com.tomodachi.entity.User;
+import com.tomodachi.entity.dto.Message;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.entity.dto.UserLoginForm;
 import com.tomodachi.service.UserService;
@@ -159,6 +160,22 @@ public class UserController {
         if (currentPage == null || currentPage < 1)
             currentPage = 1;
         return BaseResponse.success(userService.queryByUsernameWithPagination(username, currentPage));
+    }
+
+    @RoleCheck
+    @Operation(summary = "获取未读消息数量")
+    @GetMapping("/message/unread")
+    public BaseResponse<Integer> getUnreadMessageCount() {
+        return BaseResponse.success(userService.getUnreadMessageCount());
+    }
+
+    @RoleCheck
+    @Operation(summary = "滚动查询消息列表")
+    @GetMapping("/message")
+    public BaseResponse<List<Message>> getMessageWithScrolling(Long scrollId) {
+        if (scrollId == null)
+            scrollId = Long.MAX_VALUE;
+        return BaseResponse.success(userService.getMessageWithScrolling(scrollId));
     }
 
 }

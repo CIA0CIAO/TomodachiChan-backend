@@ -1,7 +1,9 @@
 package com.tomodachi.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.DesensitizedUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -11,6 +13,7 @@ import com.tomodachi.common.exception.BusinessException;
 import com.tomodachi.common.role.Role;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.entity.User;
+import com.tomodachi.entity.dto.Message;
 import com.tomodachi.entity.dto.TeamInfo;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.mapper.UserMapper;
@@ -27,6 +30,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -408,6 +412,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .stream()
                 .map(this::getMaskedUser)
                 .toList());
+    }
+
+    /**
+     * 获取未读消息数量
+     */
+    @Override
+    public Integer getUnreadMessageCount() {
+        RScoredSortedSet<Message> messageSortedSet = redissonClient.getScoredSortedSet(
+                USER_MESSAGE_KEY + UserContext.getId());
+        return (int) messageSortedSet.valueRangeReversed(0, 99)
+                .stream()
+                .filter(Message::getIsUnread)
+                .count();
+    }
+
+    /**
+     * 滚动查询消息列表
+     */
+    @Override
+    public List<Message> getMessageWithScrolling(Long scrollId) {
+        // 获取用户消息列表
+        RScoredSortedSet<Message> messageSortedSet = redissonClient.getScoredSortedSet(
+                USER_MESSAGE_KEY + UserContext.getId());
+        // 滚动查询消息
+        Collection<Message> messages = messageSortedSet.valueRangeReversed(
+                0, false, scrollId, false, 0, DEFAULT_PAGE_SIZE);
+        // 返回原始消息
+        List<Message> messageRes = BeanUtil.copyToList(messages, Message.class);
+        // 将未读消息标记为已读
+        for (Message message : messages) {
+            if (message.getIsUnread()) {
+                messageSortedSet.remove(message);
+                message.setIsUnread(false);
+                messageSortedSet.add(message.getScrollId(), message);
+            }
+        }
+        return messageRes;
     }
 
     /**

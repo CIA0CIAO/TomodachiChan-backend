@@ -52,5 +52,15 @@ public class SystemConstant {
      * 用户拥有的队伍数量上限
      */
     public static final Integer OWNED_TEAM_LIMIT = 5;
+    /**
+     * 队伍相关消息通知
+     */
+    public static final String CREATE_TEAM_MESSAGE = "您已创建队伍 %s";
+    public static final String JOIN_TEAM_MESSAGE = "%s 加入了您的队伍 %s";
+    public static final String QUIT_TEAM_MESSAGE = "%s 退出了您的队伍 %s";
+    public static final String DISBAND_TEAM_MESSAGE = "%s 解散了队伍 %s";
+    public static final String UPDATE_TEAM_INFO_MESSAGE = "%s 更新了队伍信息";
+    public static final String SEND_TEAM_INVITATION_MESSAGE = "%s 向你发送了 %s 的入队邀请，邀请码为 %s";
+    public static final String ACCEPT_TEAM_INVITATION_MESSAGE = "%s 接受了您 %s 的入队邀请";
 }
 
