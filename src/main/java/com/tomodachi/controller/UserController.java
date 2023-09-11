@@ -149,4 +149,16 @@ public class UserController {
             currentPage = 1;
         return BaseResponse.success(userService.recommendUsers(userId, currentPage));
     }
+
+    @RoleCheck
+    @Operation(summary = "根据昵称分页查询用户")
+    @GetMapping("/name")
+    public BaseResponse<Page<User>> queryByUsernameWithPagination(String username, Integer currentPage) {
+        if (Strings.isBlank(username))
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入要查询的昵称");
+        if (currentPage == null || currentPage < 1)
+            currentPage = 1;
+        return BaseResponse.success(userService.queryByUsernameWithPagination(username, currentPage));
+    }
+
 }

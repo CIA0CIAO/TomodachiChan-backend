@@ -41,4 +41,6 @@ public interface UserService extends IService<User> {
     List<String> queryHotTags();
 
     Page<User> recommendUsers(Long userId, Integer currentPage);
+
+    Page<User> queryByUsernameWithPagination(String username, Integer currentPage);
 }

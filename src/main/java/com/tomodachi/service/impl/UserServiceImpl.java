@@ -393,6 +393,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
+     * 根据昵称分页查询用户
+     */
+    @Override
+    public Page<User> queryByUsernameWithPagination(String username, Integer currentPage) {
+        // 匹配昵称或未设置昵称时的账号
+        Page<User> userPage = this.lambdaQuery()
+                .like(User::getUsername, username)
+                .or(user -> user.isNull(User::getUsername)
+                        .like(User::getAccount, username))
+                .page(new Page<>(currentPage, DEFAULT_PAGE_SIZE));
+
+        return userPage.setRecords(userPage.getRecords()
+                .stream()
+                .map(this::getMaskedUser)
+                .toList());
+    }
+
+    /**
      * 校验验证码并删除缓存
      */
     private void verifyAndDeleteCode(String email, String verificationCode) {
