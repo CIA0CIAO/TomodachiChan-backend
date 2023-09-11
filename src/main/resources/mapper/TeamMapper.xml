@@ -5,7 +5,7 @@
 
 <mapper namespace="com.tomodachi.mapper.TeamMapper">
     <!-- 队伍信息查询结果映射 -->
-    <resultMap id="teamInfoResultMap" type="teamInfo">
+    <resultMap id="teamInfoResultMap" type="com.tomodachi.entity.dto.TeamInfo">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
         <result property="description" column="description"/>
@@ -19,7 +19,7 @@
     </resultMap>
 
     <!-- 队长查询结果映射 -->
-    <resultMap id="leaderResultMap" type="user">
+    <resultMap id="leaderResultMap" type="com.tomodachi.entity.User">
         <id property="id" column="leader_id"/>
         <result property="username" column="username"/>
         <result property="avatarUrl" column="avatar_url"/>

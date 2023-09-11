@@ -34,4 +34,6 @@ public interface UserService extends IService<User> {
     List<User> queryByIdsWithCache(List<Long> userIds);
 
     Page<User> queryByTagsWithPagination(Set<String> tags, Integer currentPage);
+
+    List<String> queryHotTags();
 }

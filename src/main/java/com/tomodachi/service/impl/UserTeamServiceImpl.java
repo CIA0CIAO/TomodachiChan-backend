@@ -12,8 +12,7 @@ import org.springframework.stereotype.Service;
 * @createDate 2023-09-09 22:10:09
 */
 @Service
-public class UserTeamServiceImpl extends ServiceImpl<UserTeamMapper, UserTeam>
-    implements UserTeamService{
+public class UserTeamServiceImpl extends ServiceImpl<UserTeamMapper, UserTeam> implements UserTeamService{
 
 }
 

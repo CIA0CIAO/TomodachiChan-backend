@@ -124,4 +124,10 @@ public class UserController {
             currentPage = 1;
         return BaseResponse.success(userService.queryByTagsWithPagination(tags, currentPage));
     }
+
+    @Operation(summary = "查询近期热门搜索标签")
+    @GetMapping("/tags/hot")
+    public BaseResponse<List<String>> queryHotTags() {
+        return BaseResponse.success(userService.queryHotTags());
+    }
 }

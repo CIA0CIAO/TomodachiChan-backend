@@ -36,6 +36,12 @@ public class RedisConstant {
     public static final Duration TAGS_TTL = Duration.ofDays(3);
 
     /**
+     * 缓存热门搜索标签
+     */
+    public static final String SEARCH_HOT_KEY = "search:hot:";
+    public static final Duration SEARCH_HOT_TTL = Duration.ofDays(7);
+
+    /**
      * 缓存用户查询的标签结果
      */
     public static final String SEARCH_TAGS_KEY = "search:tags:";

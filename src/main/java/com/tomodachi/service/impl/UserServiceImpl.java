@@ -18,19 +18,15 @@ import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
-import org.redisson.api.RBucket;
-import org.redisson.api.RList;
-import org.redisson.api.RSet;
-import org.redisson.api.RedissonClient;
+import org.redisson.api.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 import static com.tomodachi.constant.RedisConstant.*;
 import static com.tomodachi.constant.SystemConstant.*;
@@ -270,6 +266,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (tags.size() > 10) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多只能查询 10 个标签");
         }
+        // 格式化当前日期
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMdd");
+        String dateStr = LocalDate.now().format(formatter);
+
+        // 更新标签搜索次数
+        RScoredSortedSet<String> searchHotSortedSet = redissonClient
+                .getScoredSortedSet(SEARCH_HOT_KEY + dateStr);
+        searchHotSortedSet.expire(SEARCH_HOT_TTL);
+        tags.forEach(tag -> searchHotSortedSet.addScore(tag, 1));
         // 分页相关参数
         long total;
         List<Long> idRecords;
@@ -305,6 +310,36 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 查询分页后的用户信息
         List<User> userRecords = queryByIdsWithCache(idRecords);
         return new Page<User>(currentPage, DEFAULT_PAGE_SIZE, total).setRecords(userRecords);
+    }
+
+    /**
+     * 查询近期热门搜索标签
+     */
+    @Override
+    public List queryHotTags() {
+        LocalDate now = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMdd");
+        // 统计近三天的热门标签
+        Map<String, Double> tagToHotMap = new TreeMap<>();
+        for (int i = 0; i < 3; i++) {
+            int daysBefore = i;
+            String dateBeforeStr = now.minusDays(daysBefore).format(formatter);
+            RScoredSortedSet<String> searchHotSortedSet = redissonClient
+                    .getScoredSortedSet(SEARCH_HOT_KEY + dateBeforeStr);
+            searchHotSortedSet.entryRangeReversed(0, 9)
+                    .forEach(entry -> {
+                        String tag = entry.getValue();
+                        Double hot = entry.getScore() * (3 - daysBefore);
+                        tagToHotMap.merge(tag, hot, Double::sum);
+                    });
+        }
+        // 取最热门的 10 个标签
+        return tagToHotMap.entrySet()
+                .stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .limit(10)
+                .toList();
     }
 
     /**
