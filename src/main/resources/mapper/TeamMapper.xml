@@ -1,27 +1,116 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.tomodachi.mapper.TeamMapper">
 
-    <resultMap id="BaseResultMap" type="com.tomodachi.entity.Team">
-            <id property="id" column="id" jdbcType="BIGINT"/>
-            <result property="leaderId" column="leader_id" jdbcType="BIGINT"/>
-            <result property="name" column="name" jdbcType="VARCHAR"/>
-            <result property="description" column="description" jdbcType="VARCHAR"/>
-            <result property="type" column="type" jdbcType="TINYINT"/>
-            <result property="password" column="password" jdbcType="VARCHAR"/>
-            <result property="memberLimit" column="member_limit" jdbcType="TINYINT"/>
-            <result property="expireTime" column="expire_time" jdbcType="TIMESTAMP"/>
-            <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
-            <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
-            <result property="isDeleted" column="is_deleted" jdbcType="TINYINT"/>
+<mapper namespace="com.tomodachi.mapper.TeamMapper">
+    <!-- 队伍信息查询结果映射 -->
+    <resultMap id="teamInfoResultMap" type="teamInfo">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="type" column="type"/>
+        <result property="hasPassword" column="has_password"/>
+        <result property="memberCount" column="member_count"/>
+        <result property="memberLimit" column="member_limit"/>
+        <result property="expireTime" column="expire_time"/>
+        <result property="createTime" column="create_time"/>
+        <association property="leader" resultMap="leaderResultMap"/>
     </resultMap>
 
-    <sql id="Base_Column_List">
-        id,leader_id,name,
-        description,type,password,
-        member_limit,expire_time,create_time,
-        update_time,is_deleted
+    <!-- 队长查询结果映射 -->
+    <resultMap id="leaderResultMap" type="user">
+        <id property="id" column="leader_id"/>
+        <result property="username" column="username"/>
+        <result property="avatarUrl" column="avatar_url"/>
+        <result property="gender" column="gender"/>
+    </resultMap>
+
+    <sql id="basicSelectSQL">
+        SELECT t.*,
+               u.username,
+               u.avatar_url,
+               u.gender,
+               IF(t.password IS NULL OR t.password = '', false, true) AS has_password,
+               COUNT(ut.user_id) AS member_count
     </sql>
+
+    <sql id="basicFromAndWhereSQL">
+        FROM team t
+        JOIN user u ON t.leader_id = u.id
+        JOIN user_team ut ON t.id = ut.team_id
+        WHERE t.is_deleted = 0
+        AND ut.is_deleted = 0
+    </sql>
+
+    <sql id="publicConditionSQL">
+        AND t.type = 0
+        AND (t.expire_time IS NULL OR t.expire_time > NOW())
+    </sql>
+
+    <sql id="selectByUserIdSQL">
+        AND t.id IN (
+        SELECT team_id
+        FROM user_team
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        )
+    </sql>
+
+    <sql id="searchConditionSQL">
+        <if test="searchText != null">
+            AND (t.name LIKE CONCAT('%', #{searchText}, '%')
+            OR t.description LIKE CONCAT('%', #{searchText}, '%'))
+        </if>
+        <if test="onlyNoPassword">
+            AND t.password IS NULL
+        </if>
+    </sql>
+
+    <sql id="orderSQL">
+        GROUP BY t.id
+        ORDER BY t.id DESC
+    </sql>
+
+    <!-- 根据队伍 ID 查询队伍信息 -->
+    <select id="getTeamInfoById" resultMap="teamInfoResultMap">
+        <include refid="basicSelectSQL"/>
+        <include refid="basicFromAndWhereSQL"/>
+        AND t.id = #{teamId}
+    </select>
+
+    <!-- 根据用户 ID 查询关联的所有队伍列表 -->
+    <select id="listAllTeamInfoByUserId" resultMap="teamInfoResultMap">
+        <include refid="basicSelectSQL"/>
+        <include refid="basicFromAndWhereSQL"/>
+        <include refid="selectByUserIdSQL"/>
+        <include refid="orderSQL"/>
+    </select>
+
+    <!-- 根据用户 ID 查询关联的公开队伍列表 -->
+    <select id="listTeamInfoByUserId" resultMap="teamInfoResultMap">
+        <include refid="basicSelectSQL"/>
+        <include refid="basicFromAndWhereSQL"/>
+        <include refid="publicConditionSQL"/>
+        <include refid="selectByUserIdSQL"/>
+        <include refid="orderSQL"/>
+    </select>
+
+    <!-- 根据条件查询公开的队伍列表 -->
+    <select id="listTeamInfoByCondition" resultMap="teamInfoResultMap">
+        <include refid="basicSelectSQL"/>
+        <include refid="basicFromAndWhereSQL"/>
+        <include refid="publicConditionSQL"/>
+        <include refid="searchConditionSQL"/>
+        <include refid="orderSQL"/>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 根据条件查询公开的队伍数量 -->
+    <select id="countTeamByCondition" resultType="long">
+        SELECT COUNT(*)
+        <include refid="basicFromAndWhereSQL"/>
+        <include refid="publicConditionSQL"/>
+        <include refid="searchConditionSQL"/>
+    </select>
 </mapper>

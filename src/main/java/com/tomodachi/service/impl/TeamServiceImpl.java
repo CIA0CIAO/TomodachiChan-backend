@@ -1,15 +1,20 @@
 package com.tomodachi.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomodachi.common.UserContext;
 import com.tomodachi.common.exception.BusinessException;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.entity.Team;
+import com.tomodachi.entity.User;
 import com.tomodachi.entity.UserTeam;
+import com.tomodachi.entity.dto.TeamInfo;
 import com.tomodachi.entity.dto.TeamInvitation;
+import com.tomodachi.entity.dto.TeamQuery;
 import com.tomodachi.mapper.TeamMapper;
 import com.tomodachi.service.TeamService;
+import com.tomodachi.service.UserService;
 import com.tomodachi.service.UserTeamService;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +26,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import static com.tomodachi.constant.RedisConstant.*;
-import static com.tomodachi.constant.SystemConstant.JOINED_TEAM_LIMIT;
-import static com.tomodachi.constant.SystemConstant.TEAM_NAME_REGEX;
+import static com.tomodachi.constant.SystemConstant.*;
 
 /**
  * @author CIA0CIA0
@@ -35,12 +40,15 @@ import static com.tomodachi.constant.SystemConstant.TEAM_NAME_REGEX;
  */
 @Service
 @RequiredArgsConstructor
-public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
-        implements TeamService {
+public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements TeamService {
     @Resource
     RedissonClient redissonClient;
     @Resource
     private UserTeamService userTeamService;
+    @Resource
+    private TeamMapper teamMapper;
+    @Resource
+    private UserService userService;
 
     /**
      * 创建队伍
@@ -184,7 +192,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "仅队长可修改队伍信息");
         // 校验队伍信息
         validateTeamInfo(team);
-// TODO: 校验当前队伍人数是否超过人数限制
+        // 校验当前队伍人数是否超过人数限制
+        int teamMembers = listTeamMember(team.getId()).size();
+        if (teamMembers > team.getMemberLimit())
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "当前人数已超过该人数限制");
         this.lambdaUpdate()
                 .eq(Team::getId, team.getId())
                 .set(Team::getName, team.getName())
@@ -196,6 +207,76 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 .set(Team::getMemberLimit, team.getMemberLimit())
                 .set(Team::getExpireTime, team.getExpireTime())
                 .update();
+    }
+
+    /**
+     * 根据 ID 查询队伍信息
+     */
+    @Override
+    public TeamInfo queryByTeamId(Long teamId) {
+        TeamInfo teamInfo = teamMapper.getTeamInfoById(teamId);
+        if (teamInfo == null)
+            throw new BusinessException(ErrorCode.NULL_ERROR, "队伍不存在");
+
+        // 私密队伍校验身份
+        if (teamInfo.getType() == 1 &&
+                listTeamMember(teamId)
+                        .stream()
+                        .noneMatch(user -> user.getId().equals(UserContext.getId())))
+            throw new BusinessException(ErrorCode.NULL_ERROR, "队伍不存在");
+        return teamInfo;
+    }
+
+    /**
+     * 查询我加入的队伍列表
+     */
+    @Override
+    public List<TeamInfo> listMyTeamInfo() {
+        return teamMapper.listAllTeamInfoByUserId(UserContext.getId());
+    }
+
+    /**
+     * 查询用户加入的队伍列表
+     */
+    @Override
+    public List<TeamInfo> listTeamInfoByUserId(Long userId) {
+        return teamMapper.listTeamInfoByUserId(userId);
+    }
+
+    /**
+     * 按条件分页查询队伍信息
+     */
+    @Override
+    public Page<TeamInfo> queryByConditionWithPagination(TeamQuery teamQuery) {
+        // 处理查询条件
+        int currentPage = teamQuery.getCurrentPage();
+        int offset = (currentPage - 1) * DEFAULT_PAGE_SIZE;
+        int limit = DEFAULT_PAGE_SIZE;
+        String searchText = teamQuery.getSearchText();
+        boolean onlyNoPassword = Boolean.TRUE.equals(teamQuery.getOnlyNoPassword());
+
+        // 查询队伍信息
+        List<TeamInfo> teamInfoList = teamMapper.listTeamInfoByCondition(offset, limit, searchText, onlyNoPassword);
+        long total = teamMapper.countTeamByCondition(searchText, onlyNoPassword);
+
+        Page<TeamInfo> teamInfoPage = new Page<>(currentPage, DEFAULT_PAGE_SIZE, total);
+        return teamInfoPage.setRecords(teamInfoList);
+    }
+
+    /**
+     * 查询队伍成员列表
+     */
+    @Override
+    public List<User> listTeamMember(Long teamId) {
+        List<Long> memberIds = userTeamService.lambdaQuery()
+                .select(UserTeam::getUserId)
+                .eq(UserTeam::getTeamId, teamId)
+                .orderByAsc(UserTeam::getCreateTime)
+                .list()
+                .stream()
+                .map(UserTeam::getUserId)
+                .toList();
+        return userService.queryByIdsWithCache(memberIds);
     }
 
 
@@ -292,6 +373,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 .count() >= team.getMemberLimit())
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍人数已满");
     }
+
 }
 
 

@@ -2,6 +2,9 @@ package com.tomodachi.mapper;
 
 import com.tomodachi.entity.Team;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.tomodachi.entity.dto.TeamInfo;
+
+import java.util.List;
 
 /**
 * @author CIA0CIA0
@@ -10,7 +13,15 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.tomodachi.entity.Team
 */
 public interface TeamMapper extends BaseMapper<Team> {
+    TeamInfo getTeamInfoById(Long teamId);
 
+    List<TeamInfo> listAllTeamInfoByUserId(Long userId);
+
+    List<TeamInfo> listTeamInfoByUserId(Long userId);
+
+    List<TeamInfo> listTeamInfoByCondition(long offset, long limit, String searchText, boolean onlyNoPassword);
+
+    long countTeamByCondition(String searchText, boolean onlyNoPassword);
 }
 
 
