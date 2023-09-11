@@ -3,6 +3,7 @@ package com.tomodachi.service.impl;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.DesensitizedUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomodachi.common.UserContext;
@@ -205,6 +206,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .set(gender != null, User::getGender, gender)
                 .set(profile != null, User::getProfile, profile)
                 .update();
+    }
+
+    /**
+     *  编辑标签
+     */
+    @Override
+    public void updateTags(List<String> tags) {
+        // 标签去重
+        List<String> tagList = tags.stream()
+                .distinct()
+                .toList();
+        if(tagList.size() > 10)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多添加 10 个标签");
+        // 更新标签
+        Long userId = UserContext.getId();
+        this.lambdaUpdate()
+                .eq(User::getId, userId)
+                .set(User::getTags, JSONUtil.toJsonStr(tags))
+                .update();
+        // 删除缓存
+        redissonClient.getBucket(USER_INFO_KEY + userId)
+                .delete();
     }
 
     /**

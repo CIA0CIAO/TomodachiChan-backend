@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -107,6 +108,15 @@ public class UserController {
         return BaseResponse.success("用户信息更新成功");
     }
 
+    @RoleCheck
+    @Operation(summary = "用户编辑标签")
+    @PutMapping("/account/tags")
+    public BaseResponse<String> updateTags(@RequestBody List<String> tags) {
+        if(tags == null)
+            tags = Collections.emptyList();
+        userService.updateTags(tags);
+        return BaseResponse.success("标签更新成功");
+    }
     @Operation(summary = "查询指定用户的信息")
     @GetMapping("/{userId}")
     public BaseResponse<User> queryByUserId(@PathVariable Long userId) {

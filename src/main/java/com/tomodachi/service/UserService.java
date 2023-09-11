@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
-* @author CIA0CIA0
-* @description 针对表【user(用户表)】的数据库操作Service
-* @createDate 2023-09-06 21:02:24
-*/
+ * @author CIA0CIA0
+ * @description 针对表【user(用户表)】的数据库操作Service
+ * @createDate 2023-09-06 21:02:24
+ */
 public interface UserService extends IService<User> {
 
     void sendVerificationCode(String email);
@@ -29,6 +29,8 @@ public interface UserService extends IService<User> {
 
     void updateBasicInfo(User user);
 
+    void updateTags(List<String> tags);
+
     User queryByUserId(Long userId);
 
     List<User> queryByIdsWithCache(List<Long> userIds);
@@ -36,4 +38,5 @@ public interface UserService extends IService<User> {
     Page<User> queryByTagsWithPagination(Set<String> tags, Integer currentPage);
 
     List<String> queryHotTags();
+
 }
