@@ -11,6 +11,7 @@ import com.tomodachi.common.exception.BusinessException;
 import com.tomodachi.common.role.Role;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.entity.User;
+import com.tomodachi.entity.dto.TeamInfo;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.mapper.UserMapper;
 import com.tomodachi.service.UserService;
@@ -209,7 +210,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     *  编辑标签
+     * 编辑标签
      */
     @Override
     public void updateTags(List<String> tags) {
@@ -217,7 +218,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         List<String> tagList = tags.stream()
                 .distinct()
                 .toList();
-        if(tagList.size() > 10)
+        if (tagList.size() > 10)
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多添加 10 个标签");
         // 更新标签
         Long userId = UserContext.getId();
@@ -363,6 +364,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .map(Map.Entry::getKey)
                 .limit(10)
                 .toList();
+    }
+
+    /**
+     * 分页推荐标签相近的用户
+     */
+    @Override
+    public Page<User> recommendUsers(Long userId, Integer currentPage) {
+        List<String> hotTags = queryHotTags();
+
+        // 默认随机使用热门标签推荐用户
+        Set<String> recommendTags = RandomUtil.randomEleSet(hotTags, Math.min(3, hotTags.size()));
+
+        // 若用户已登录则按用户标签推荐
+        Optional.ofNullable(userId)
+                .map(id -> this.getById(userId))
+                .map(User::getTags)
+                .ifPresent(tags -> {
+                    // 若用户标签不足 3 个则随机补充热门标签
+                    if (tags.size() < 3)
+                        tags.addAll(RandomUtil.randomEleSet(hotTags,
+                                Math.min(3 - tags.size(), hotTags.size())));
+                    recommendTags.clear();
+                    recommendTags.addAll(tags);
+                });
+
+        return queryByTagsWithPagination(recommendTags, currentPage);
     }
 
     /**

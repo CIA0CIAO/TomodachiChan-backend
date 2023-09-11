@@ -38,4 +38,5 @@ public interface TeamService extends IService<Team> {
     Page<TeamInfo>  queryByConditionWithPagination(TeamQuery teamQuery);
     List<User> listTeamMember(Long teamId);
 
+    Page<TeamInfo> recommendTeams(Long userId, Integer currentPage);
 }

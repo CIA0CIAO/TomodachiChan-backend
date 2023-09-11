@@ -112,11 +112,12 @@ public class UserController {
     @Operation(summary = "用户编辑标签")
     @PutMapping("/account/tags")
     public BaseResponse<String> updateTags(@RequestBody List<String> tags) {
-        if(tags == null)
+        if (tags == null)
             tags = Collections.emptyList();
         userService.updateTags(tags);
         return BaseResponse.success("标签更新成功");
     }
+
     @Operation(summary = "查询指定用户的信息")
     @GetMapping("/{userId}")
     public BaseResponse<User> queryByUserId(@PathVariable Long userId) {
@@ -128,9 +129,9 @@ public class UserController {
     @Operation(summary = "根据标签分页查询用户")
     @GetMapping("/tags")
     public BaseResponse<Page<User>> queryByIdsWithCache(@RequestParam Set<String> tags, Integer currentPage) {
-        if(tags == null || tags.isEmpty())
+        if (tags == null || tags.isEmpty())
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要查询的标签");
-        if(currentPage == null || currentPage < 1)
+        if (currentPage == null || currentPage < 1)
             currentPage = 1;
         return BaseResponse.success(userService.queryByTagsWithPagination(tags, currentPage));
     }
@@ -139,5 +140,13 @@ public class UserController {
     @GetMapping("/tags/hot")
     public BaseResponse<List<String>> queryHotTags() {
         return BaseResponse.success(userService.queryHotTags());
+    }
+
+    @Operation(summary = "分页推荐标签相近的用户")
+    @GetMapping("/recommend")
+    public BaseResponse<Page<User>> recommendUsers(Long userId, Integer currentPage) {
+        if (currentPage == null || currentPage < 1)
+            currentPage = 1;
+        return BaseResponse.success(userService.recommendUsers(userId, currentPage));
     }
 }

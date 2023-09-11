@@ -58,4 +58,10 @@ public class RedisConstant {
      */
     public static final String TEAM_INVITATION_KEY = "team:invitation:";
     public static final Duration TEAM_INVITATION_TTL = Duration.ofDays(7);
+
+    /**
+     * 队伍推荐缓存信息
+     */
+    public static final String TEAM_RECOMMEND_KEY = "team:recommend:";
+    public static final Duration TEAM_RECOMMEND_TTL = Duration.ofHours(1);
 }

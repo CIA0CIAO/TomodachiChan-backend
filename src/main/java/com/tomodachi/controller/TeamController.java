@@ -122,5 +122,11 @@ public class TeamController {
         return BaseResponse.success(teamService.listTeamMember(teamId));
     }
 
-
+    @Operation(summary = "分页推荐随机队伍")
+    @GetMapping("/recommend")
+    public BaseResponse<Page<TeamInfo>> recommendTeams(Long userId, Integer currentPage) {
+        if (currentPage == null || currentPage < 1)
+            currentPage = 1;
+        return BaseResponse.success(teamService.recommendTeams(userId, currentPage));
+    }
 }

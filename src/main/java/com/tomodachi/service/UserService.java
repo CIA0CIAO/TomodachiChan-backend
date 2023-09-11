@@ -3,6 +3,7 @@ package com.tomodachi.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.tomodachi.entity.User;
+import com.tomodachi.entity.dto.TeamInfo;
 import com.tomodachi.entity.dto.UserLogin;
 
 import java.util.List;
@@ -39,4 +40,5 @@ public interface UserService extends IService<User> {
 
     List<String> queryHotTags();
 
+    Page<User> recommendUsers(Long userId, Integer currentPage);
 }

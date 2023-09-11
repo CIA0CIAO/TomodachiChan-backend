@@ -20,15 +20,14 @@ import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.redisson.api.RBucket;
+import org.redisson.api.RList;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static com.tomodachi.constant.RedisConstant.*;
 import static com.tomodachi.constant.SystemConstant.*;
@@ -279,6 +278,24 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         return userService.queryByIdsWithCache(memberIds);
     }
 
+    /**
+     * 分页推荐随机队伍
+     */
+    @Override
+    public Page<TeamInfo> recommendTeams(Long userId, Integer currentPage) {
+        if (userId == null)
+            userId = 0L;
+        // 从缓存中获取推荐队伍列表
+        RList<TeamInfo> teamRecommendList = redissonClient.getList(TEAM_RECOMMEND_KEY + userId);
+        // 游客缓存的队伍推荐列表过期或用户刷新列表时重新生成缓存
+        if (teamRecommendList.isEmpty() || (userId != 0 && currentPage == 1))
+            teamRecommendList = generateTeamRecommendCache(userId);
+        int offset = (currentPage - 1) * DEFAULT_PAGE_SIZE;
+        int total = teamRecommendList.size();
+        List<TeamInfo> teamRecords = new ArrayList<>(teamRecommendList.subList(offset, Math.min(offset + DEFAULT_PAGE_SIZE, total)));
+        return new Page<TeamInfo>(currentPage, DEFAULT_PAGE_SIZE, total).setRecords(teamRecords);
+    }
+
 
     /**
      * 校验队伍信息是否合法
@@ -372,6 +389,24 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
                 .eq(UserTeam::getTeamId, team.getId())
                 .count() >= team.getMemberLimit())
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍人数已满");
+    }
+
+    /**
+     * 生成队伍推荐列表缓存
+     */
+    private RList<TeamInfo> generateTeamRecommendCache(Long userId) {
+        // 在随机位置查询队伍信息并打乱
+        int offset = RandomUtil.randomInt(0, 100);
+        List<TeamInfo> teamInfoList = teamMapper.listTeamInfoByCondition(
+                offset, 100, null, true);
+        Collections.shuffle(teamInfoList);
+
+        // 缓存打乱后的队伍推荐列表
+        RList<TeamInfo> recommendTeamList = redissonClient.getList(TEAM_RECOMMEND_KEY + userId);
+        recommendTeamList.clear();
+        recommendTeamList.addAll(teamInfoList);
+        recommendTeamList.expire(TEAM_RECOMMEND_TTL);
+        return recommendTeamList;
     }
 
 }
