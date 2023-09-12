@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.tomodachi.constant.RedisConstant.*;
 import static com.tomodachi.constant.SystemConstant.*;
@@ -67,6 +68,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         team.setLeaderId(userId);
         this.save(team);
         doJoinTeam(userId, team.getId());
+        // 发送消息
+        userTeamService.sendMessages(CREATE_TEAM_MESSAGE.formatted(team.getName()), Set.of(userId));
     }
 
     /**
@@ -81,7 +84,14 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         String teamPassword = team.getPassword();
         if (Strings.isNotBlank(teamPassword) && !teamPassword.equals(password))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
-        doJoinTeam(UserContext.getId(), teamId);
+        Long userId = UserContext.getId();
+        doJoinTeam(userId, teamId);
+        // 发送消息
+        User user = userService.getById(userId);
+        String username = Optional.ofNullable(user.getUsername())
+                .orElse(user.getAccount());
+        userTeamService.sendMessages(JOIN_TEAM_MESSAGE
+                .formatted(username, team.getName()), Set.of(team.getLeaderId()));
     }
 
     /**
@@ -97,6 +107,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         // 校验用户是否为队长
         Team team = isTeamExist(teamId, false);
         Long inviter = UserContext.getId();
+        teamInvitation.setInviter(inviter);
         if (!inviter.equals(team.getLeaderId()))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "仅队长可使用邀请功能");
         // 校验对方是否已在队伍中
@@ -118,6 +129,13 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         }
         teamInvitationBucket.set(teamInvitation, TEAM_INVITATION_TTL);
 
+        // 发送消息
+        User leader = userService.getById(inviter);
+        String leaderName = Optional.ofNullable(leader.getUsername())
+                .orElse(leader.getAccount());
+        userTeamService.sendMessages(SEND_TEAM_INVITATION_MESSAGE
+                .formatted(leaderName, team.getName(), invitationCode), Set.of(invitee));
+
         return new TeamInvitation().setInvitationCode(invitationCode);
     }
 
@@ -132,6 +150,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
             throw new BusinessException(ErrorCode.NULL_ERROR, "邀请码不存在或已过期");
         TeamInvitation teamInvitation = teamInvitationBucket.get();
         Long teamId = teamInvitation.getTeamId();
+        Long inviter = teamInvitation.getInviter();
         Long invitee = teamInvitation.getInvitee();
         // 校验用户是否为受邀者
         if (!invitee.equals(UserContext.getId()))
@@ -143,6 +162,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         doJoinTeam(UserContext.getId(), teamId);
         // 删除邀请信息
         teamInvitationBucket.delete();
+        // 发送消息
+        User user = userService.getById(invitee);
+        String username = Optional.ofNullable(user.getUsername())
+                .orElse(user.getAccount());
+        userTeamService.sendMessages(ACCEPT_TEAM_INVITATION_MESSAGE
+                .formatted(username, team.getName()), Set.of(inviter));
     }
 
     /**
@@ -154,20 +179,30 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         Team team = isTeamExist(teamId, false);
         // 校验用户是否在队伍中
         Long userId = UserContext.getId();
-        List<UserTeam> userTeam = userTeamService.lambdaQuery()
+        List<UserTeam> userTeamList = userTeamService.lambdaQuery()
                 .eq(UserTeam::getUserId, userId)
                 .list();
-        if (userTeam.stream()
+        if (userTeamList.stream()
                 .map(UserTeam::getUserId)
                 .noneMatch(userId::equals))
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您不在该队伍中");
-
-        if (team.getLeaderId().equals(userId)) {
+        Long leaderId = team.getLeaderId();
+        if (leaderId.equals(userId)) {
             // 解散队伍
             this.removeById(teamId);
             userTeamService.lambdaUpdate()
                     .eq(UserTeam::getTeamId, teamId)
                     .remove();
+            // 发送消息
+            User leader = userService.getById(userId);
+            String leaderName = Optional.ofNullable(leader.getUsername())
+                    .orElse(leader.getAccount());
+            Set<Long> userIds = userTeamList.stream()
+                    .map(UserTeam::getUserId)
+                    .filter(id -> !id.equals(userId))
+                    .collect(Collectors.toSet());
+            userTeamService.sendMessages(DISBAND_TEAM_MESSAGE
+                    .formatted(leaderName, team.getName()), userIds);
             return "已解散队伍";
         } else {
             // 退出队伍
@@ -175,6 +210,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
                     .eq(UserTeam::getUserId, userId)
                     .eq(UserTeam::getTeamId, teamId)
                     .remove();
+            // 发送消息
+            User user = userService.getById(userId);
+            String username = Optional.ofNullable(user.getUsername())
+                    .orElse(user.getAccount());
+            userTeamService.sendMessages(QUIT_TEAM_MESSAGE
+                    .formatted(username, team.getName()), Set.of(leaderId));
             return "已退出队伍";
         }
     }
@@ -206,6 +247,15 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
                 .set(Team::getMemberLimit, team.getMemberLimit())
                 .set(Team::getExpireTime, team.getExpireTime())
                 .update();
+
+        // 发送消息
+        Set<Long> userIds = listTeamMember(team.getId())
+                .stream()
+                .map(User::getId)
+                .filter(id -> !id.equals(userId))
+                .collect(Collectors.toSet());
+        userTeamService.sendMessages(UPDATE_TEAM_INFO_MESSAGE
+                .formatted(oldTeam.getName()), userIds);
     }
 
     /**
