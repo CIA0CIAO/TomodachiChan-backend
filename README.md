@@ -1,4 +1,4 @@
-# 一周好友 (后端) - TomodachiChan-backend
+# 公诸同好 (后端) - TomodachiChan-backend
 
 > 于离别之朝束起约定之花
 
