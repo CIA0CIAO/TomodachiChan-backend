@@ -48,12 +48,12 @@ knife4j:
   setting:
     swagger-model-name: 实体类信息
 
-momo-companion:
+tomodachi:
   md5-salt: ''
   aliyun:
     oss:
-      access-key-id: ''
-      access-key-secret: ''
-      endpoint: ''
-      bucket-name: ''
-      url-prefix: ''
+      access-key-id: 'LTAI5t8gthrwg1ByqJ11t8uQ'
+      access-key-secret: 'iJhVCRwUjDpxzOfnhki1uQPvZz7a6L'
+      endpoint: 'https://oss-cn-beijing.aliyuncs.com'
+      bucket-name: 'tomodachi'
+      url-prefix: 'https://tomodachi.oss-cn-beijing.aliyuncs.com/'

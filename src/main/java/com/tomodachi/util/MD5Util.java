@@ -9,7 +9,7 @@ import org.springframework.util.DigestUtils;
  */
 @Component
 public class MD5Util {
-    @Value("${momo-companion.md5-salt}")
+    @Value("${tomodachi.md5-salt}")
     private String salt;
 
     /**

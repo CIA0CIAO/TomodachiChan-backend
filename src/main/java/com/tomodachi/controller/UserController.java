@@ -17,6 +17,7 @@ import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collections;
 import java.util.List;
@@ -99,6 +100,15 @@ public class UserController {
         return BaseResponse.success("密码更换成功");
     }
 
+    @RoleCheck
+    @Operation(summary = "用户更换头像")
+    @PutMapping("/account/avatar")
+    public BaseResponse<String> updateAvatar(MultipartFile file) {
+        if (file == null)
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要更换的头像");
+        userService.updateAvatar(file);
+        return BaseResponse.success("头像更换成功");
+    }
     @RoleCheck
     @Operation(summary = "用户更新基本信息")
     @PutMapping("/account/basic")

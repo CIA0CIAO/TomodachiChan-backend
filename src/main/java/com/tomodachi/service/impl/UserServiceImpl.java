@@ -3,7 +3,6 @@ package com.tomodachi.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.DesensitizedUtil;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -14,11 +13,11 @@ import com.tomodachi.common.role.Role;
 import com.tomodachi.controller.response.ErrorCode;
 import com.tomodachi.entity.User;
 import com.tomodachi.entity.dto.Message;
-import com.tomodachi.entity.dto.TeamInfo;
 import com.tomodachi.entity.dto.UserLogin;
 import com.tomodachi.mapper.UserMapper;
 import com.tomodachi.service.UserService;
 import com.tomodachi.util.MD5Util;
+import com.tomodachi.util.OSSUtil;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,9 +27,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -50,6 +49,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     String provider;
     @Resource
     MailSender mailSender;
+    @Resource
+    OSSUtil ossUtil;
     @Resource
     MD5Util md5Util;
     @Resource
@@ -183,6 +184,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         this.lambdaUpdate()
                 .eq(User::getId, UserContext.getId())
                 .set(User::getPassword, encryptedPassword)
+                .update();
+    }
+
+    /**
+     * 更换头像
+     */
+    @Override
+    public void updateAvatar(MultipartFile file) {
+        Long userId = UserContext.getId();
+        // 删除旧头像
+        String oldAvatarUrl = this.lambdaQuery()
+                .eq(User::getId, userId)
+                .one()
+                .getAvatarUrl();
+        if (Strings.isNotBlank(oldAvatarUrl)) {
+            ossUtil.delete(oldAvatarUrl);
+        }
+        // 上传新头像
+        String avatarUrl = ossUtil.upload(file, FILE_COMMON_PREFIX + "/avatar");
+        // 更新头像
+        this.lambdaUpdate()
+                .eq(User::getId, userId)
+                .set(User::getAvatarUrl, avatarUrl)
                 .update();
     }
 

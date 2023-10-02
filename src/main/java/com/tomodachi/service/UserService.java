@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.tomodachi.entity.User;
 import com.tomodachi.entity.dto.Message;
 import com.tomodachi.entity.dto.UserLogin;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Set;
@@ -28,6 +29,8 @@ public interface UserService extends IService<User> {
 
     void updatePassword(String password, String verificationCode);
 
+    void updateAvatar(MultipartFile file);
+
     void updateBasicInfo(User user);
 
     void updateTags(List<String> tags);
@@ -47,4 +50,5 @@ public interface UserService extends IService<User> {
     Integer getUnreadMessageCount();
 
     List<Message> getMessageWithScrolling(Long scrollId);
+
 }
